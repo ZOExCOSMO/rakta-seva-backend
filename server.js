@@ -73,13 +73,27 @@ app.post('/api/notify-donors', async (req, res) => {
       if (dist <= radiusKm) eligibleTokens.push({ token: d.fcmToken, dist: dist.toFixed(1) });
     });
 
-    if (!eligibleTokens.length) return res.json({ notifiedCount: 0, deliveredIn: Date.now() - start });
+    if (!eligibleTokens.length) {
+      return res.json({ notifiedCount: 0, deliveredIn: Date.now() - start });
+    }
 
     const msgs = eligibleTokens.map(({ token, dist }) => ({
       token,
-      data: { requestId, bloodGroup, hospital: hospitalName, distanceKm: dist,
-              title: `🩸 Urgent: ${bloodGroup} Needed`, body: `${hospitalName} · ${dist} km away` },
-      android: { priority: 'high', notification: { channelId: 'emergency_alerts', sound: 'default' } }
+      data: {
+        requestId,
+        bloodGroup,
+        hospital: hospitalName,
+        distanceKm: dist,
+        title: `🩸 Urgent: ${bloodGroup} Needed`,
+        body: `${hospitalName} · ${dist} km away`
+      },
+      android: {
+        priority: 'high',
+        notification: {
+          channelId: 'emergency_alerts',
+          sound: 'default'
+        }
+      }
     }));
 
     let sent = 0;
@@ -100,9 +114,21 @@ app.post('/api/notify-donors', async (req, res) => {
 function haversine(lat1, lng1, lat2, lng2) {
   const R = 6371, toRad = x => x * Math.PI / 180;
   const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
-  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng/2)**2;
+  const a = Math.sin(dLat/2)**2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
+
+// ── KEEP ALIVE (prevents Render free tier spin-down) ──
+const BACKEND_URL = 'https://rakta-seva-backend.onrender.com';
+setInterval(async () => {
+  try {
+    await fetch(BACKEND_URL);
+    console.log('Keep-alive ping sent');
+  } catch (e) {
+    console.log('Keep-alive failed:', e.message);
+  }
+}, 14 * 60 * 1000);
 
 app.listen(process.env.PORT || 3000, () =>
   console.log(`Rakta-Seva backend on port ${process.env.PORT || 3000}`));
